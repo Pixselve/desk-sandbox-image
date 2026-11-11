@@ -24,6 +24,35 @@ RUN set -eux; \
 
 RUN python3 -m pip install --no-cache-dir matplotlib numpy
 
+ENV RUSTUP_HOME=/usr/local/rustup \
+    CARGO_HOME=/usr/local/cargo \
+    PATH=/usr/local/cargo/bin:/usr/local/go/bin:$PATH
+ARG RUST_TOOLCHAINS="stable 1.97.1"
+RUN set -eux; \
+    cd /tmp; \
+    url=https://static.rust-lang.org/rustup/dist/x86_64-unknown-linux-gnu/rustup-init; \
+    curl -fsSLO "$url"; \
+    echo "$(curl -fsSL "$url.sha256" | cut -d' ' -f1)  rustup-init" | sha256sum -c -; \
+    chmod +x rustup-init; \
+    ./rustup-init -y -q --no-modify-path --profile minimal --default-toolchain none; \
+    rm rustup-init; \
+    for t in $RUST_TOOLCHAINS; do \
+      rustup toolchain install "$t" --profile minimal --component rustfmt,clippy,rust-src; \
+    done; \
+    rustup default stable; \
+    ln -sf "$CARGO_HOME"/bin/* /usr/local/bin/; \
+    chown -R appuser:appgroup "$RUSTUP_HOME" "$CARGO_HOME"
+
+ARG GO_VERSION=1.27.4
+ARG GO_SHA256=7226736c2339719cda28fbf3a54d71aa63bcefe376e98cef00034268dab24840
+RUN set -eux; \
+    cd /tmp; \
+    curl -fsSLo go.tgz "https://go.dev/dl/go${GO_VERSION}.linux-amd64.tar.gz"; \
+    echo "${GO_SHA256}  go.tgz" | sha256sum -c -; \
+    tar -C /usr/local -xzf go.tgz; \
+    ln -sf /usr/local/go/bin/go /usr/local/go/bin/gofmt /usr/local/bin/; \
+    rm go.tgz
+
 ENV VHS_NO_SANDBOX=true
 
 USER appuser

@@ -44,6 +44,8 @@ jobs:
             ffmpeg -version | head -1
             chromium --version
             python3 -c "import matplotlib; print(\"matplotlib\", matplotlib.__version__)"
+            cargo --version && cargo clippy --version && rustup toolchain list
+            go version
             cd /tmp
             printf "Output t.gif\nSet Width 600\nSet Height 200\nType \"echo hello\"\nEnter\nSleep 1s\n" > t.tape
             vhs t.tape && test -s t.gif && echo "vhs recorded $(stat -c %s t.gif) bytes"
