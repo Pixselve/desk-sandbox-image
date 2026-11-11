@@ -1,6 +1,8 @@
 ARG BASE
 FROM ${BASE}
 
+LABEL service=""
+
 USER root
 
 ARG TTYD_VERSION=1.7.7
