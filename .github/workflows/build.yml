@@ -1,0 +1,62 @@
+name: Build and push
+
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+  # Weekly, for Debian's security updates.
+  schedule:
+    - cron: "17 5 * * 1"
+
+permissions:
+  contents: read
+  packages: write
+
+jobs:
+  image:
+    runs-on: ubuntu-latest
+    env:
+      IMAGE: ghcr.io/${{ github.repository }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: docker/setup-buildx-action@v3
+      - uses: docker/login-action@v3
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+      - name: Build
+        uses: docker/build-push-action@v6
+        with:
+          context: .
+          platforms: linux/amd64
+          load: true
+          build-args: BASE=${{ vars.BASE_IMAGE }}
+          tags: ${{ env.IMAGE }}:test
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
+      - name: Smoke test
+        run: |
+          docker run --rm "$IMAGE:test" bash -lc '
+            set -e
+            vhs --version
+            ttyd --version
+            ffmpeg -version | head -1
+            chromium --version
+            python3 -c "import matplotlib; print(\"matplotlib\", matplotlib.__version__)"
+            cd /tmp
+            printf "Output t.gif\nSet Width 600\nSet Height 200\nType \"echo hello\"\nEnter\nSleep 1s\n" > t.tape
+            vhs t.tape && test -s t.gif && echo "vhs recorded $(stat -c %s t.gif) bytes"
+            chromium --headless=new --no-sandbox --screenshot=/tmp/s.png --window-size=400,200 "data:text/html,<h1>ok</h1>" 2>/dev/null
+            test -s /tmp/s.png && echo "chromium screenshot $(stat -c %s /tmp/s.png) bytes"
+          '
+      - name: Push
+        run: |
+          date=$(date -u +%Y.%m.%d)
+          short=${GITHUB_SHA::7}
+          for tag in latest "$date" "sha-$short"; do
+            docker tag "$IMAGE:test" "$IMAGE:$tag"
+            docker push "$IMAGE:$tag"
+          done
+          echo "Pushed $IMAGE:{latest,$date,sha-$short}" >> "$GITHUB_STEP_SUMMARY"
+          docker inspect --format '{{index .RepoDigests 0}}' "$IMAGE:latest" >> "$GITHUB_STEP_SUMMARY"
