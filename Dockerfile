@@ -18,7 +18,7 @@ RUN set -eux; \
     echo 'deb [signed-by=/etc/apt/keyrings/charm.gpg] https://repo.charm.sh/apt/ * *' > /etc/apt/sources.list.d/charm.list; \
     apt-get update; \
     DEBIAN_FRONTEND=noninteractive apt-get install -y --no-install-recommends \
-      chromium ffmpeg vhs \
+      chromium ffmpeg vhs lsof \
       fonts-dejavu-core fonts-liberation fonts-noto-color-emoji; \
     rm -rf /var/lib/apt/lists/*
 
@@ -52,6 +52,18 @@ RUN set -eux; \
     tar -C /usr/local -xzf go.tgz; \
     ln -sf /usr/local/go/bin/go /usr/local/go/bin/gofmt /usr/local/bin/; \
     rm go.tgz
+
+# A second Node, 24, next to the base image's. Put /opt/node24/bin first on PATH to use it.
+ARG NODE24_VERSION=24.19.0
+ARG NODE24_SHA256=14b342e71204f811bde6153be8e04b62aef63c236fef92b55f9c83154b409647
+RUN set -eux; \
+    cd /tmp; \
+    curl -fsSLo node.tar.xz "https://nodejs.org/dist/v${NODE24_VERSION}/node-v${NODE24_VERSION}-linux-x64.tar.xz"; \
+    echo "${NODE24_SHA256}  node.tar.xz" | sha256sum -c -; \
+    mkdir -p /opt/node24; \
+    tar -C /opt/node24 --strip-components=1 -xJf node.tar.xz; \
+    rm node.tar.xz; \
+    /opt/node24/bin/node --version
 
 ENV VHS_NO_SANDBOX=true
 
